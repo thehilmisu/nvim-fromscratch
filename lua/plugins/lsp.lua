@@ -1,12 +1,16 @@
 return{
     -- Main LSP Configuration
     'neovim/nvim-lspconfig',
+    -- Pinned to the 1.x line: 2.x requires vim.lsp.enable(), which only exists
+    -- in Nvim 0.11+. This machine runs 0.10.3, where 2.x fails with
+    -- "attempt to call field 'enable' (a nil value)" on every startup.
+    version = '^1.0.0',
     dependencies = {
       -- Automatically install LSPs and related tools to stdpath for Neovim
       -- Mason must be loaded before its dependents so we need to set it up here.
       -- NOTE: `opts = {}` is the same as calling `require('mason').setup({})`
-      { 'williamboman/mason.nvim', opts = {} },
-      'williamboman/mason-lspconfig.nvim',
+      { 'williamboman/mason.nvim', version = '^1.0.0', opts = {} },
+      { 'williamboman/mason-lspconfig.nvim', version = '^1.0.0' },
       'WhoIsSethDaniel/mason-tool-installer.nvim',
 
       -- Useful status updates for LSP.
@@ -163,9 +167,41 @@ return{
       --  - settings (table): Override the default settings passed when initializing the server.
       --        For example, to see the options for `lua_ls`, you could go to: https://luals.github.io/wiki/settings/
       local servers = {
-         clangd = {
-                
-            },
+        -- Matches the Helix languages.toml setup. The mason-installed clangd
+        -- was being started with no arguments, so it could not ask the MinGW /
+        -- Qt compiler for its own system include paths - hence "'type_traits'
+        -- file not found" and the cascade of bogus errors after it.
+        clangd = {
+          cmd = (function()
+            -- Windows: the MSYS2 clangd, plus --query-driver so it can ask the
+            -- MinGW / Qt compiler for its own system include paths. Without it
+            -- clangd cannot find <type_traits> and fills the file with false
+            -- errors. Elsewhere the clangd on PATH already knows its toolchain.
+            if vim.fn.has('win32') == 1 then
+              return {
+                'C:/msys64/clang64/bin/clangd.exe',
+                '--background-index',
+                '--query-driver=C:/msys64/ucrt64/bin/*.exe,C:/Qt/Tools/mingw*/bin/*.exe',
+                '--header-insertion=never',
+                '--clang-tidy',
+              }
+            end
+            return {
+              'clangd',
+              '--background-index',
+              '--query-driver=/usr/bin/c++,/usr/bin/clang++,/opt/homebrew/bin/*,/usr/local/bin/*',
+              '--header-insertion=never',
+              '--clang-tidy',
+            }
+          end)(),
+          -- Without this clangd claims the whole drive when a header is opened
+          -- outside the project.
+          root_dir = function(fname)
+            return require('lspconfig.util').root_pattern(
+              '.clangd', 'compile_commands.json', 'CMakeLists.txt', '.git'
+            )(fname)
+          end,
+        },
         -- gopls = {},
         -- pyright = {},
         -- rust_analyzer = {},
@@ -208,14 +244,29 @@ return{
       -- You can add other tools here that you want Mason to install
       -- for you, so that they are available from within Neovim.
       local ensure_installed = vim.tbl_keys(servers or {})
+      -- clangd comes from MSYS2 with the query-driver arguments above; letting
+      -- mason install a second copy is what shadowed it.
+      ensure_installed = vim.tbl_filter(function(name)
+        return name ~= 'clangd'
+      end, ensure_installed)
       vim.list_extend(ensure_installed, {
         'stylua', -- Used to format Lua code
       })
       require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
+      -- clangd is configured directly below, outside mason's handler list.
+      require('lspconfig').clangd.setup(
+        vim.tbl_deep_extend('force', { capabilities = capabilities }, servers.clangd)
+      )
+
       require('mason-lspconfig').setup {
+        ensure_installed = {},
+        automatic_installation = false,
         handlers = {
           function(server_name)
+            if server_name == 'clangd' then
+              return
+            end
             local server = servers[server_name] or {}
             -- This handles overriding only values explicitly passed
             -- by the server configuration above. Useful when disabling

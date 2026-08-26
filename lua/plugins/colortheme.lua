@@ -1,21 +1,27 @@
 return {
-	"blazkowolf/gruber-darker.nvim",
+	"sainnhe/gruvbox-material",
 	lazy = false,
 	priority = 1000,
-	opts = {
-		bold = false,
-		italic = {
-			strings = false,
-			comments = false,
-			operators = false,
-			folds = false,
-		},
-	},
 	config = function()
-		vim.cmd.colorscheme("gruber-darker")
+		-- gruvbox-material is a vimscript colorscheme: every option is a global
+		-- that has to be set BEFORE :colorscheme runs.
+		vim.o.background = "dark"
 
-		vim.api.nvim_set_hl(0, "String", { fg = "#73c936", italic = false })
-		vim.api.nvim_set_hl(0, "Character", { fg = "#73c936", italic = false })
-		vim.api.nvim_set_hl(0, "Comment", { fg = "#cc8c3c", italic = false })
+		-- "hard" | "medium" | "soft"
+		vim.g.gruvbox_material_background = "hard"
+
+		-- "material" | "mix" | "original"
+		vim.g.gruvbox_material_foreground = "material"
+
+		-- Matches the no-italics preference carried over from gruber-darker.
+		vim.g.gruvbox_material_enable_italic = false
+		vim.g.gruvbox_material_disable_italic_comment = true
+		vim.g.gruvbox_material_enable_bold = false
+
+		vim.g.gruvbox_material_better_performance = 1
+		vim.g.gruvbox_material_ui_contrast = "high"
+		vim.g.gruvbox_material_diagnostic_virtual_text = "colored"
+
+		vim.cmd.colorscheme("gruvbox-material")
 	end,
 }

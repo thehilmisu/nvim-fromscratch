@@ -1,3 +1,6 @@
+-- Set before any plugin loads: several of them pick icon sets from it.
+vim.g.have_nerd_font = true
+
 require("core.options")
 require("core.keymaps")
 
@@ -17,11 +20,12 @@ require("lazy").setup({
     require("plugins.colortheme"),
     require("plugins.bufferline"),
     require("plugins.lualine"),
-    require("plugins.treesitter"),
+    --require("plugins.treesitter"),
     require("plugins.telescope"),
     require("plugins.lsp"),
     require("plugins.autocompletion"),
-    require("plugins.none-ls"),
+    --require("plugins.none-ls"),
     require("plugins.indent-blankline"),
+    require("plugins.git"),
     require("plugins.misc"),
 })

@@ -17,7 +17,7 @@ vim.keymap.set("n", "<Esc>", ":noh<CR>", opts)
 vim.keymap.set("n", "<C-s>", "<cmd> w <CR>", opts)
 
 -- save file without auto-formatting
-vim.keymap.set("n", "<leader>sn", "<cmd>noautocmd w <CR>", opts)
+vim.keymap.set("n", "<leader>W", "<cmd>noautocmd w <CR>", opts)
 
 -- quit file
 vim.keymap.set("n", "<C-q>", "<cmd> q <CR>", opts)
@@ -25,26 +25,95 @@ vim.keymap.set("n", "<C-q>", "<cmd> q <CR>", opts)
 -- delete single character without copying into register
 vim.keymap.set("n", "x", '"_x', opts)
 
--- Vertical scroll and center
-vim.keymap.set("n", "<C-d>", "<C-d>zz", opts)
+-- Vertical scroll and center. <C-d> is the Helix build binding below, so only
+-- <C-u> keeps its scroll behaviour; <C-f> takes over scrolling down.
 vim.keymap.set("n", "<C-u>", "<C-u>zz", opts)
+vim.keymap.set("n", "<C-f>", "<C-d>zz", opts)
 
 -- Find and center
 vim.keymap.set("n", "n", "nzzzv")
 vim.keymap.set("n", "N", "Nzzzv")
 
--- Resize with arrows
--- vim.keymap.set('n', '<Up>', ':resize -2<CR>', opts)
--- vim.keymap.set('n', '<Down>', ':resize +2<CR>', opts)
--- vim.keymap.set('n', '<Left>', ':vertical resize -2<CR>', opts)
--- vim.keymap.set('n', '<Right>', ':vertical resize +2<CR>', opts)
+--------------------------------------------------------------------------
+-- Helix parity: the [keys.normal] / [keys.select] block from config.toml
+--------------------------------------------------------------------------
 
--- Neotree toggle
-vim.keymap.set("n", "<C-b>", ":Neotree toggle<CR>", opts)
+-- helix: "C-up"/"C-down" = move the current line (or selection) up/down
+vim.keymap.set("n", "<C-Up>", ":m .-2<CR>==", opts)
+vim.keymap.set("n", "<C-Down>", ":m .+1<CR>==", opts)
+vim.keymap.set("i", "<C-Up>", "<Esc>:m .-2<CR>==gi", opts)
+vim.keymap.set("i", "<C-Down>", "<Esc>:m .+1<CR>==gi", opts)
+-- helix [keys.select]: same, keeping the selection afterwards
+vim.keymap.set("v", "<C-Up>", ":m '<-2<CR>gv=gv", opts)
+vim.keymap.set("v", "<C-Down>", ":m '>+1<CR>gv=gv", opts)
 
--- Buffers
-vim.keymap.set("n", "<Tab>", ":bnext<CR>", opts)
-vim.keymap.set("n", "<S-Tab>", ":bprevious<CR>", opts)
+local is_win = vim.fn.has("win32") == 1
+local is_mac = vim.fn.has("mac") == 1
+
+-- helix: "C-b" = :sh wt -w 0 split-pane -d .
+vim.keymap.set("n", "<C-b>", function()
+  local cwd = vim.fn.getcwd()
+  if is_win then
+    vim.fn.jobstart({ "wt", "-w", "0", "split-pane", "-d", cwd }, { detach = true })
+  elseif is_mac then
+    vim.fn.jobstart({ "open", "-a", "Terminal", cwd }, { detach = true })
+  else
+    vim.cmd("botright split | terminal")
+  end
+end, { noremap = true, silent = true, desc = "Split a terminal pane here" })
+
+-- helix: "C-/" = search_selection then global_search
+local function global_search_selection()
+  local ok, builtin = pcall(require, "telescope.builtin")
+  if not ok then
+    vim.notify("telescope is not available", vim.log.levels.WARN)
+    return
+  end
+  builtin.grep_string({ search = vim.fn.expand("<cword>") })
+end
+
+local function global_search_visual()
+  local ok, builtin = pcall(require, "telescope.builtin")
+  if not ok then
+    return
+  end
+  -- Yank the visual selection to a scratch register and search for it.
+  local saved = vim.fn.getreg("z")
+  vim.cmd('noautocmd normal! "zy')
+  local text = vim.fn.getreg("z")
+  vim.fn.setreg("z", saved)
+  builtin.grep_string({ search = text })
+end
+
+-- Terminals send <C-_> for Ctrl+/, so both are bound.
+for _, lhs in ipairs({ "<C-/>", "<C-_>" }) do
+  vim.keymap.set("n", lhs, global_search_selection, { noremap = true, silent = true, desc = "Global search word" })
+  vim.keymap.set("v", lhs, global_search_visual, { noremap = true, silent = true, desc = "Global search selection" })
+end
+
+-- helix: "C-d" = :sh start cmd /k build.bat
+vim.keymap.set("n", "<C-d>", function()
+  vim.cmd("silent! wall")
+  local cwd = vim.fn.getcwd()
+  if is_win then
+    vim.fn.jobstart({ "cmd.exe", "/c", "start", "cmd", "/k", "build.bat" },
+      { detach = true, cwd = cwd })
+  else
+    local script = vim.fn.filereadable(cwd .. "/build.sh") == 1 and "./build.sh" or "cmake --build build"
+    vim.cmd("botright 15split | terminal " .. script)
+  end
+end, { noremap = true, silent = true, desc = "Build project" })
+
+-- helix: "S-tab" = :buffer-next
+vim.keymap.set("n", "<S-Tab>", ":bnext<CR>", opts)
+vim.keymap.set("n", "<Tab>", ":bprevious<CR>", opts)
+
+--------------------------------------------------------------------------
+
+-- File tree. Helix has no equivalent; <C-b> is the terminal split there, so
+-- the tree moves to <leader>e.
+vim.keymap.set("n", "<leader>e", ":Neotree toggle<CR>", opts)
+
 vim.keymap.set("n", "<leader>x", ":Bdelete!<CR>", opts)   -- close buffer
 vim.keymap.set("n", "<leader>b", "<cmd> enew <CR>", opts) -- new buffer
 
@@ -77,12 +146,6 @@ vim.keymap.set("n", "<leader>lw", "<cmd>set wrap!<CR>", opts)
 vim.keymap.set("v", "<", "<gv", opts)
 vim.keymap.set("v", ">", ">gv", opts)
 
--- Move text up and down
-vim.keymap.set("n", "<C-Up>", ":m .-2<CR>==", opts)
-vim.keymap.set("n", "<C-Down>", ":m .+1<CR>==", opts)
-vim.keymap.set("i", "<C-Up>", ":m .-2<CR>==gi", opts)
-vim.keymap.set("i", "<C-Down>", ":m .+1<CR>==gi", opts)
-
 -- Keep last yanked when pasting
 vim.keymap.set("v", "p", '"_dP', opts)
 
@@ -98,20 +161,15 @@ local diagnostics_active = true
 
 vim.keymap.set("n", "<leader>do", function()
   diagnostics_active = not diagnostics_active
-
-  if diagnostics_active then
-    vim.diagnostic.enable(0)
-  else
-    vim.diagnostic.disable(0)
-  end
-end)
+  vim.diagnostic.enable(diagnostics_active)
+end, { desc = "Toggle diagnostics" })
 
 -- Diagnostic keymaps
 vim.keymap.set("n", "[d", vim.diagnostic.goto_prev, { desc = "Go to previous diagnostic message" })
 vim.keymap.set("n", "]d", vim.diagnostic.goto_next, { desc = "Go to next diagnostic message" })
-vim.keymap.set("n", "<leader>d", vim.diagnostic.open_float, { desc = "Open floating diagnostic message" })
+vim.keymap.set("n", "<leader>dd", vim.diagnostic.open_float, { desc = "Open floating diagnostic message" })
 vim.keymap.set("n", "<leader>q", vim.diagnostic.setloclist, { desc = "Open diagnostics list" })
 
 -- Save and load session
-vim.keymap.set("n", "<leader>ss", ":mksession! .session.vim<CR>", { noremap = true, silent = false })
-vim.keymap.set("n", "<leader>sl", ":source .session.vim<CR>", { noremap = true, silent = false })
+vim.keymap.set("n", "<leader>Ss", ":mksession! .session.vim<CR>", { noremap = true, silent = false })
+vim.keymap.set("n", "<leader>Sl", ":source .session.vim<CR>", { noremap = true, silent = false })
