@@ -104,6 +104,10 @@ vim.keymap.set("n", "<C-d>", function()
   end
 end, { noremap = true, silent = true, desc = "Build project" })
 
+-- helix: "C-c" = toggle_comments (nvim ships gc/gcc; this is the Helix key for it)
+vim.keymap.set("n", "<C-c>", "gcc", { remap = true, silent = true, desc = "Toggle comment" })
+vim.keymap.set("x", "<C-c>", "gc", { remap = true, silent = true, desc = "Toggle comment" })
+
 -- helix: "S-tab" = :buffer-next
 vim.keymap.set("n", "<S-Tab>", ":bnext<CR>", opts)
 vim.keymap.set("n", "<Tab>", ":bprevious<CR>", opts)
