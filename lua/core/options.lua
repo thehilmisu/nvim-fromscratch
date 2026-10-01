@@ -75,7 +75,8 @@ vim.opt.shiftwidth = 4
 vim.opt.expandtab = true
 vim.opt.shiftround = true
 
--- Make the difference visible instead of guessing: a tab used for indentation
--- shows as a faint marker, and trailing whitespace is flagged.
+-- Flag trailing whitespace and non-breaking spaces. Tabs render as plain
+-- blanks (the two-space value hides the marker; 'list' needs a tab entry or
+-- it shows ^I).
 vim.opt.list = true
-vim.opt.listchars = { tab = "› ", trail = "·", nbsp = "␣" }
+vim.opt.listchars = { tab = "  ", trail = "·", nbsp = "␣" }
