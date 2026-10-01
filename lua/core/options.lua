@@ -44,9 +44,38 @@ vim.opt.runtimepath:remove '/usr/share/vim/vimfiles' -- separate vim plugins fro
 
 -- C and C++ default to /*%s*/, which makes gcc wrap lines in block comments
 -- that cannot nest. Line comments toggle cleanly instead.
+--
+-- The tab width is forced too. Some vendor sources indent with spaces followed
+-- by tabs, which only lines up when a tab is 4 columns - what VS Code shows
+-- them at. vim-sleuth guesses 8 for those files, so the same code looks skewed
+-- in Neovim. Deferred with vim.schedule so it lands after sleuth has run.
 vim.api.nvim_create_autocmd("FileType", {
   pattern = { "c", "cpp", "cuda", "objc" },
-  callback = function()
-    vim.bo.commentstring = "// %s"
+  callback = function(args)
+    vim.bo[args.buf].commentstring = "// %s"
+    vim.schedule(function()
+      if not vim.api.nvim_buf_is_valid(args.buf) then
+        return
+      end
+      vim.bo[args.buf].tabstop = 4
+      vim.bo[args.buf].softtabstop = 4
+      vim.bo[args.buf].shiftwidth = 4
+      vim.bo[args.buf].expandtab = true
+    end)
   end,
 })
+
+-- Some vendor C sources indent with spaces followed by tabs, and only line up
+-- when a tab is 4 columns wide (which is what VS Code shows them at). Neovim
+-- defaults to 8, so the same file looks skewed. vim-sleuth is also allowed to
+-- override this per file when it detects something different.
+vim.opt.tabstop = 4
+vim.opt.softtabstop = 4
+vim.opt.shiftwidth = 4
+vim.opt.expandtab = true
+vim.opt.shiftround = true
+
+-- Make the difference visible instead of guessing: a tab used for indentation
+-- shows as a faint marker, and trailing whitespace is flagged.
+vim.opt.list = true
+vim.opt.listchars = { tab = "› ", trail = "·", nbsp = "␣" }
